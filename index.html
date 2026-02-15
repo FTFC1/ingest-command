@@ -2,48 +2,97 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ingest — Command Center</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Drop — Command Center</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'SF Mono', 'Fira Code', monospace; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+    background: #0a0a0a; color: #e0e0e0; min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
 
-  /* Auth gate */
-  #auth-gate { display: flex; align-items: center; justify-content: center; height: 100vh; }
-  #auth-gate input { background: #1a1a1a; border: 1px solid #333; color: #e0e0e0; padding: 12px 20px; font-size: 18px; font-family: inherit; border-radius: 8px; width: 240px; text-align: center; }
+  /* Auth */
+  #auth-gate { display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column; gap: 12px; }
+  #auth-gate .label { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #555; }
+  #auth-gate input { background: #1a1a1a; border: 1px solid #333; color: #e0e0e0; padding: 14px 20px; font-size: 18px; font-family: inherit; border-radius: 12px; width: 200px; text-align: center; }
   #auth-gate input:focus { outline: none; border-color: #4ecdc4; }
   #app { display: none; }
 
   /* Header */
-  .header { padding: 16px 20px; border-bottom: 1px solid #1a1a1a; display: flex; justify-content: space-between; align-items: center; }
-  .header h1 { font-size: 14px; letter-spacing: 2px; text-transform: uppercase; color: #666; }
+  .header { padding: 16px 20px 12px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: #0a0a0a; z-index: 10; }
+  .header h1 { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #4ecdc4; font-weight: 700; }
   .meta { font-size: 11px; color: #555; }
 
-  /* Lens tabs */
-  .lens-bar { display: flex; gap: 0; border-bottom: 1px solid #1a1a1a; overflow-x: auto; }
-  .lens-tab { padding: 10px 16px; font-size: 12px; color: #666; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.2s; }
+  /* Lens tabs — horizontal scroll, mobile-first */
+  .lens-bar { display: flex; gap: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; position: sticky; top: 48px; background: #0a0a0a; z-index: 10; border-bottom: 1px solid #1a1a1a; }
+  .lens-bar::-webkit-scrollbar { display: none; }
+  .lens-tab { padding: 12px 16px; font-size: 13px; font-weight: 500; color: #666; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.2s; min-height: 44px; display: flex; align-items: center; }
   .lens-tab:hover { color: #aaa; }
-  .lens-tab.active { color: #4ecdc4; border-bottom-color: #4ecdc4; }
+  .lens-tab.active { color: #4ecdc4; border-bottom-color: #4ecdc4; font-weight: 600; }
 
   /* Panels */
-  .panel { display: none; padding: 16px 20px; }
+  .panel { display: none; padding: 16px 16px 100px; }
   .panel.active { display: block; }
 
-  /* Triage */
-  .triage-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 6px; margin-bottom: 6px; transition: background 0.2s; }
-  .triage-item:hover { background: #141414; }
-  .urgency { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  /* Section headers */
+  .section-head { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #555; margin: 20px 0 10px; font-weight: 600; }
+  .section-head:first-child { margin-top: 0; }
+
+  /* ── TRIAGE ── */
+  .triage-item { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 10px; margin-bottom: 6px; background: #111; min-height: 44px; }
+  .urgency { font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; }
   .urgency.now { background: #e74c3c22; color: #e74c3c; }
   .urgency.soon { background: #f39c1222; color: #f39c12; }
   .urgency.week { background: #3498db22; color: #3498db; }
-  .triage-type { font-size: 10px; color: #555; }
-  .triage-title { font-size: 13px; flex: 1; }
+  .triage-title { font-size: 14px; flex: 1; line-height: 1.4; }
+  .triage-type { font-size: 10px; color: #555; flex-shrink: 0; }
 
-  /* Stream cards */
-  .stream-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
-  .stream-card { background: #111; border-radius: 8px; padding: 14px; border-left: 3px solid; }
-  .stream-card .name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
-  .stream-card .status { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  /* ── SHIPPED ── */
+  .shipped-day { margin-bottom: 20px; }
+  .shipped-date { font-size: 12px; font-weight: 700; color: #4ecdc4; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .shipped-date .dot { width: 6px; height: 6px; background: #4ecdc4; border-radius: 50%; flex-shrink: 0; }
+  .shipped-item { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 10px; background: #111; margin-bottom: 6px; }
+  .shipped-item-head { display: flex; align-items: center; gap: 8px; }
+  .shipped-tag { font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0; }
+  .shipped-tag[data-t="PUMA"] { background: #D4FF0022; color: #D4FF00; }
+  .shipped-tag[data-t="ALOE"] { background: #2ecc7122; color: #2ecc71; }
+  .shipped-tag[data-t="INFRA"] { background: #4ecdc422; color: #4ecdc4; }
+  .shipped-tag[data-t="CONTENT"] { background: #f39c1222; color: #f39c12; }
+  .shipped-tag[data-t="OPS"] { background: #95a5a622; color: #95a5a6; }
+  .shipped-tag[data-t="HB"] { background: #9b59b622; color: #9b59b6; }
+  .shipped-title { font-size: 14px; font-weight: 600; }
+  .shipped-detail { font-size: 12px; color: #888; line-height: 1.4; margin-top: 2px; }
+  .shipped-link { font-size: 11px; color: #4ecdc4; margin-top: 4px; word-break: break-all; }
+
+  /* ── ACCESS ── */
+  .access-item { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 10px; background: #111; margin-bottom: 6px; min-height: 52px; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 0.15s; }
+  .access-item:active { background: #1a1a1a; }
+  .access-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .access-dot.live { background: #2ecc71; box-shadow: 0 0 6px #2ecc7144; }
+  .access-dot.local { background: #f39c12; }
+  .access-body { flex: 1; }
+  .access-label { font-size: 14px; font-weight: 600; }
+  .access-note { font-size: 11px; color: #666; margin-top: 1px; }
+  .access-arrow { color: #333; font-size: 16px; }
+
+  /* ── RULES ── */
+  .rule-card { padding: 14px; border-radius: 10px; background: #111; margin-bottom: 6px; border-left: 3px solid #4ecdc4; }
+  .rule-title { font-size: 14px; font-weight: 700; color: #e0e0e0; margin-bottom: 4px; }
+  .rule-detail { font-size: 12px; color: #888; line-height: 1.5; }
+  .rule-origin { font-size: 10px; color: #444; margin-top: 4px; }
+
+  /* ── INSIGHTS ── */
+  .insight-card { padding: 14px; border-radius: 10px; background: #0f1a1a; border: 1px solid #1a3a3a; margin-bottom: 8px; }
+  .insight-title { font-size: 14px; font-weight: 700; color: #4ecdc4; margin-bottom: 4px; }
+  .insight-detail { font-size: 12px; color: #999; line-height: 1.5; }
+
+  /* ── STREAMS ── */
+  .stream-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .stream-card { background: #111; border-radius: 10px; padding: 14px; border-left: 3px solid; }
+  .stream-card .name { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+  .stream-card .status { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; font-weight: 600; }
   .stream-card .status.building { color: #4ecdc4; }
   .stream-card .status.blocked { color: #e74c3c; }
   .stream-card .status.parked { color: #f39c12; }
@@ -52,68 +101,77 @@
   .stream-card .status.accumulating { color: #3498db; }
   .stream-card .status.ready { color: #2ecc71; }
   .stream-card .status.idea { color: #e91e63; }
-  .stream-card .note { font-size: 11px; color: #777; }
+  .stream-card .note { font-size: 12px; color: #777; line-height: 1.4; }
   .stream-card .count { font-size: 11px; color: #555; margin-top: 6px; }
 
-  /* Inventory */
-  .inv-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #141414; }
-  .inv-count { font-size: 24px; font-weight: 700; color: #4ecdc4; min-width: 48px; text-align: right; }
-  .inv-label { font-size: 13px; }
-  .inv-bar { flex: 1; height: 4px; background: #1a1a1a; border-radius: 2px; overflow: hidden; }
+  /* ── EDGES ── */
+  .edge-card { background: #0f1a1a; border: 1px solid #1a3a3a; border-radius: 10px; padding: 14px; margin-bottom: 8px; }
+  .edge-label { font-size: 14px; font-weight: 700; color: #4ecdc4; margin-bottom: 6px; }
+  .edge-streams { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .edge-tag { font-size: 10px; padding: 3px 8px; background: #1a2a2a; border-radius: 6px; color: #4ecdc4; }
+  .edge-note { font-size: 12px; color: #888; line-height: 1.4; }
+
+  /* ── INVENTORY ── */
+  .inv-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #141414; }
+  .inv-count { font-size: 22px; font-weight: 700; color: #4ecdc4; min-width: 40px; text-align: right; }
+  .inv-label { font-size: 14px; flex: 1; }
+  .inv-bar { flex: 1; height: 4px; background: #1a1a1a; border-radius: 2px; overflow: hidden; max-width: 80px; }
   .inv-fill { height: 100%; background: #4ecdc4; border-radius: 2px; }
 
-  /* Timeline */
+  /* ── TIMELINE ── */
   .tl-day { margin-bottom: 16px; }
-  .tl-date { font-size: 12px; color: #4ecdc4; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
-  .tl-date .dot { width: 8px; height: 8px; background: #4ecdc4; border-radius: 50%; }
-  .tl-count { font-size: 11px; color: #555; }
-  .tl-highlights li { font-size: 12px; color: #999; padding: 2px 0 2px 20px; list-style: none; }
+  .tl-date { font-size: 13px; font-weight: 700; color: #4ecdc4; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .tl-date .dot { width: 8px; height: 8px; background: #4ecdc4; border-radius: 50%; flex-shrink: 0; }
+  .tl-count { font-size: 11px; color: #555; font-weight: 400; }
+  .tl-highlights li { font-size: 13px; color: #999; padding: 4px 0 4px 20px; list-style: none; line-height: 1.4; }
   .tl-highlights li::before { content: '›'; margin-right: 8px; color: #4ecdc4; }
 
-  /* Edge effects */
-  .edge-card { background: #0f1a1a; border: 1px solid #1a3a3a; border-radius: 8px; padding: 14px; margin-bottom: 10px; }
-  .edge-label { font-size: 14px; font-weight: 600; color: #4ecdc4; margin-bottom: 6px; }
-  .edge-streams { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
-  .edge-tag { font-size: 10px; padding: 2px 6px; background: #1a2a2a; border-radius: 4px; color: #4ecdc4; }
-  .edge-note { font-size: 11px; color: #888; }
-
-  /* Quick wins */
-  .qw-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
-  .qw-check { width: 16px; height: 16px; border-radius: 4px; border: 1px solid #333; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+  /* ── QUICK WINS ── */
+  .qw-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 13px; min-height: 36px; }
+  .qw-check { width: 20px; height: 20px; border-radius: 6px; border: 1px solid #333; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
   .qw-check.done { background: #4ecdc422; border-color: #4ecdc4; color: #4ecdc4; }
   .qw-check.todo { border-color: #555; }
 
-  /* Mobile */
-  @media (max-width: 600px) {
-    .stream-grid { grid-template-columns: 1fr; }
-    .header { flex-direction: column; gap: 4px; }
-    .lens-tab { padding: 8px 12px; font-size: 11px; }
+  /* ── Desktop: 2-column streams ── */
+  @media (min-width: 600px) {
+    .stream-grid { grid-template-columns: 1fr 1fr; }
+    .panel { max-width: 640px; margin: 0 auto; }
+    .header, .lens-bar { max-width: 640px; margin-left: auto; margin-right: auto; }
   }
 </style>
 </head>
 <body>
 
 <div id="auth-gate">
+  <div class="label">Drop</div>
   <input type="password" id="token" placeholder="token" autofocus>
 </div>
 
 <div id="app">
   <div class="header">
-    <h1>Ingest — Command Center</h1>
+    <h1>Drop</h1>
     <div class="meta" id="meta-info"></div>
   </div>
 
   <div class="lens-bar" id="lens-bar">
     <div class="lens-tab active" data-lens="triage">Triage</div>
+    <div class="lens-tab" data-lens="shipped">Shipped</div>
+    <div class="lens-tab" data-lens="access">Access</div>
     <div class="lens-tab" data-lens="streams">Streams</div>
-    <div class="lens-tab" data-lens="edges">Edge Effects</div>
-    <div class="lens-tab" data-lens="inventory">Inventory</div>
+    <div class="lens-tab" data-lens="insights">Insights</div>
+    <div class="lens-tab" data-lens="rules">Rules</div>
+    <div class="lens-tab" data-lens="edges">Edges</div>
     <div class="lens-tab" data-lens="timeline">Timeline</div>
-    <div class="lens-tab" data-lens="wins">Quick Wins</div>
+    <div class="lens-tab" data-lens="inventory">Inventory</div>
+    <div class="lens-tab" data-lens="wins">Checklist</div>
   </div>
 
   <div class="panel active" id="panel-triage"></div>
+  <div class="panel" id="panel-shipped"></div>
+  <div class="panel" id="panel-access"></div>
   <div class="panel" id="panel-streams"></div>
+  <div class="panel" id="panel-insights"></div>
+  <div class="panel" id="panel-rules"></div>
   <div class="panel" id="panel-edges"></div>
   <div class="panel" id="panel-inventory"></div>
   <div class="panel" id="panel-timeline"></div>
@@ -122,18 +180,16 @@
 
 <script src="data.js"></script>
 <script>
-// Auth — simple token gate
 const TOKEN = 'aloe';
 const tokenInput = document.getElementById('token');
 tokenInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && tokenInput.value === TOKEN) {
     document.getElementById('auth-gate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+    localStorage.setItem('ingest-auth', TOKEN);
     renderAll();
   }
 });
-
-// Check localStorage for saved auth
 if (localStorage.getItem('ingest-auth') === TOKEN) {
   document.getElementById('auth-gate').style.display = 'none';
   document.getElementById('app').style.display = 'block';
@@ -151,16 +207,14 @@ document.querySelectorAll('.lens-tab').forEach(tab => {
 });
 
 function renderAll() {
-  localStorage.setItem('ingest-auth', TOKEN);
   const d = ingestData;
 
   // Meta
   document.getElementById('meta-info').textContent =
-    `${d.meta.totalItems} items · ${d.meta.streams.length} streams · updated ${d.meta.lastUpdated}`;
+    `${d.meta.totalItems} items · ${d.meta.streams.length} streams`;
 
   // Triage
-  const triageEl = document.getElementById('panel-triage');
-  triageEl.innerHTML = d.triage.map(item => `
+  document.getElementById('panel-triage').innerHTML = d.triage.map(item => `
     <div class="triage-item">
       <span class="urgency ${item.urgency}">${item.urgency}</span>
       <span class="triage-title">${item.title}</span>
@@ -168,33 +222,82 @@ function renderAll() {
     </div>
   `).join('');
 
-  // Streams
-  const streamsEl = document.getElementById('panel-streams');
-  streamsEl.innerHTML = '<div class="stream-grid">' + d.streamHealth.map(s => `
-    <div class="stream-card" style="border-left-color: ${d.meta.streams.find(ms => ms.id === s.id)?.color || '#333'}">
-      <div class="name">${d.meta.streams.find(ms => ms.id === s.id)?.label || s.id}</div>
-      <div class="status ${s.status}">${s.status}</div>
-      <div class="note">${s.note}</div>
-      <div class="count">${s.itemCount} items · ${s.lastTouched}</div>
+  // Shipped
+  document.getElementById('panel-shipped').innerHTML = d.shipped.map(day => `
+    <div class="shipped-day">
+      <div class="shipped-date"><span class="dot"></span>${day.date}</div>
+      ${day.items.map(item => `
+        <div class="shipped-item">
+          <div class="shipped-item-head">
+            <span class="shipped-tag" data-t="${item.tag}">${item.tag}</span>
+            <span class="shipped-title">${item.title}</span>
+          </div>
+          <div class="shipped-detail">${item.detail}</div>
+          ${item.url ? `<a class="shipped-link" href="${item.url}" target="_blank">${item.url}</a>` : ''}
+        </div>
+      `).join('')}
     </div>
-  `).join('') + '</div>';
+  `).join('');
+
+  // Access
+  document.getElementById('panel-access').innerHTML = d.access.map(item => `
+    <a class="access-item" href="${item.url}" target="_blank">
+      <span class="access-dot ${item.status}"></span>
+      <div class="access-body">
+        <div class="access-label">${item.label}</div>
+        ${item.note ? `<div class="access-note">${item.note}</div>` : ''}
+      </div>
+      <span class="access-arrow">›</span>
+    </a>
+  `).join('');
+
+  // Streams
+  document.getElementById('panel-streams').innerHTML = '<div class="stream-grid">' + d.streamHealth.map(s => {
+    const meta = d.meta.streams.find(ms => ms.id === s.id);
+    return `
+      <div class="stream-card" style="border-left-color: ${meta?.color || '#333'}">
+        <div class="name">${meta?.label || s.id}</div>
+        <div class="status ${s.status}">${s.status}</div>
+        <div class="note">${s.note}</div>
+        <div class="count">${s.itemCount} items · ${s.lastTouched}</div>
+      </div>
+    `;
+  }).join('') + '</div>';
+
+  // Insights
+  document.getElementById('panel-insights').innerHTML = d.insights.map(item => `
+    <div class="insight-card">
+      <div class="insight-title">${item.insight}</div>
+      <div class="insight-detail">${item.detail}</div>
+    </div>
+  `).join('');
+
+  // Rules
+  document.getElementById('panel-rules').innerHTML = d.rules.map(item => `
+    <div class="rule-card">
+      <div class="rule-title">${item.rule}</div>
+      <div class="rule-detail">${item.detail}</div>
+      <div class="rule-origin">${item.origin}</div>
+    </div>
+  `).join('');
 
   // Edge Effects
-  const edgesEl = document.getElementById('panel-edges');
-  edgesEl.innerHTML = d.edges.map(edge => `
+  document.getElementById('panel-edges').innerHTML = d.edges.map(edge => `
     <div class="edge-card">
       <div class="edge-label">${edge.label}</div>
       <div class="edge-streams">
-        ${edge.streams.map(s => `<span class="edge-tag">${s}</span>`).join('')}
+        ${edge.streams.map(s => {
+          const meta = d.meta.streams.find(ms => ms.id === s);
+          return `<span class="edge-tag">${meta?.label || s}</span>`;
+        }).join('')}
       </div>
       <div class="edge-note">${edge.note}</div>
     </div>
   `).join('');
 
   // Inventory
-  const invEl = document.getElementById('panel-inventory');
   const maxCount = Math.max(...Object.values(d.inventory).map(v => v.count));
-  invEl.innerHTML = Object.entries(d.inventory).map(([key, val]) => `
+  document.getElementById('panel-inventory').innerHTML = Object.entries(d.inventory).map(([key, val]) => `
     <div class="inv-row">
       <div class="inv-count">${val.count}</div>
       <div class="inv-label">${val.label}</div>
@@ -203,8 +306,7 @@ function renderAll() {
   `).join('');
 
   // Timeline
-  const tlEl = document.getElementById('panel-timeline');
-  tlEl.innerHTML = d.timeline.map(day => `
+  document.getElementById('panel-timeline').innerHTML = d.timeline.map(day => `
     <div class="tl-day">
       <div class="tl-date">
         <span class="dot"></span>
@@ -217,9 +319,8 @@ function renderAll() {
     </div>
   `).join('');
 
-  // Quick Wins
-  const winsEl = document.getElementById('panel-wins');
-  winsEl.innerHTML = d.quickWins.map(w => `
+  // Checklist
+  document.getElementById('panel-wins').innerHTML = d.quickWins.map(w => `
     <div class="qw-item">
       <div class="qw-check ${w.done ? 'done' : 'todo'}">${w.done ? '✓' : ''}</div>
       <span style="color: ${w.done ? '#666' : '#e0e0e0'}">${w.label}</span>
