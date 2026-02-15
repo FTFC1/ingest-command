@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ingest — Command Center</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'SF Mono', 'Fira Code', monospace; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
+
+  /* Auth gate */
+  #auth-gate { display: flex; align-items: center; justify-content: center; height: 100vh; }
+  #auth-gate input { background: #1a1a1a; border: 1px solid #333; color: #e0e0e0; padding: 12px 20px; font-size: 18px; font-family: inherit; border-radius: 8px; width: 240px; text-align: center; }
+  #auth-gate input:focus { outline: none; border-color: #4ecdc4; }
+  #app { display: none; }
+
+  /* Header */
+  .header { padding: 16px 20px; border-bottom: 1px solid #1a1a1a; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 14px; letter-spacing: 2px; text-transform: uppercase; color: #666; }
+  .meta { font-size: 11px; color: #555; }
+
+  /* Lens tabs */
+  .lens-bar { display: flex; gap: 0; border-bottom: 1px solid #1a1a1a; overflow-x: auto; }
+  .lens-tab { padding: 10px 16px; font-size: 12px; color: #666; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.2s; }
+  .lens-tab:hover { color: #aaa; }
+  .lens-tab.active { color: #4ecdc4; border-bottom-color: #4ecdc4; }
+
+  /* Panels */
+  .panel { display: none; padding: 16px 20px; }
+  .panel.active { display: block; }
+
+  /* Triage */
+  .triage-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 6px; margin-bottom: 6px; transition: background 0.2s; }
+  .triage-item:hover { background: #141414; }
+  .urgency { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  .urgency.now { background: #e74c3c22; color: #e74c3c; }
+  .urgency.soon { background: #f39c1222; color: #f39c12; }
+  .urgency.week { background: #3498db22; color: #3498db; }
+  .triage-type { font-size: 10px; color: #555; }
+  .triage-title { font-size: 13px; flex: 1; }
+
+  /* Stream cards */
+  .stream-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .stream-card { background: #111; border-radius: 8px; padding: 14px; border-left: 3px solid; }
+  .stream-card .name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .stream-card .status { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .stream-card .status.building { color: #4ecdc4; }
+  .stream-card .status.blocked { color: #e74c3c; }
+  .stream-card .status.parked { color: #f39c12; }
+  .stream-card .status.reference { color: #9b59b6; }
+  .stream-card .status.documented { color: #95a5a6; }
+  .stream-card .status.accumulating { color: #3498db; }
+  .stream-card .status.ready { color: #2ecc71; }
+  .stream-card .status.idea { color: #e91e63; }
+  .stream-card .note { font-size: 11px; color: #777; }
+  .stream-card .count { font-size: 11px; color: #555; margin-top: 6px; }
+
+  /* Inventory */
+  .inv-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #141414; }
+  .inv-count { font-size: 24px; font-weight: 700; color: #4ecdc4; min-width: 48px; text-align: right; }
+  .inv-label { font-size: 13px; }
+  .inv-bar { flex: 1; height: 4px; background: #1a1a1a; border-radius: 2px; overflow: hidden; }
+  .inv-fill { height: 100%; background: #4ecdc4; border-radius: 2px; }
+
+  /* Timeline */
+  .tl-day { margin-bottom: 16px; }
+  .tl-date { font-size: 12px; color: #4ecdc4; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .tl-date .dot { width: 8px; height: 8px; background: #4ecdc4; border-radius: 50%; }
+  .tl-count { font-size: 11px; color: #555; }
+  .tl-highlights li { font-size: 12px; color: #999; padding: 2px 0 2px 20px; list-style: none; }
+  .tl-highlights li::before { content: '›'; margin-right: 8px; color: #4ecdc4; }
+
+  /* Edge effects */
+  .edge-card { background: #0f1a1a; border: 1px solid #1a3a3a; border-radius: 8px; padding: 14px; margin-bottom: 10px; }
+  .edge-label { font-size: 14px; font-weight: 600; color: #4ecdc4; margin-bottom: 6px; }
+  .edge-streams { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .edge-tag { font-size: 10px; padding: 2px 6px; background: #1a2a2a; border-radius: 4px; color: #4ecdc4; }
+  .edge-note { font-size: 11px; color: #888; }
+
+  /* Quick wins */
+  .qw-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
+  .qw-check { width: 16px; height: 16px; border-radius: 4px; border: 1px solid #333; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+  .qw-check.done { background: #4ecdc422; border-color: #4ecdc4; color: #4ecdc4; }
+  .qw-check.todo { border-color: #555; }
+
+  /* Mobile */
+  @media (max-width: 600px) {
+    .stream-grid { grid-template-columns: 1fr; }
+    .header { flex-direction: column; gap: 4px; }
+    .lens-tab { padding: 8px 12px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="auth-gate">
+  <input type="password" id="token" placeholder="token" autofocus>
+</div>
+
+<div id="app">
+  <div class="header">
+    <h1>Ingest — Command Center</h1>
+    <div class="meta" id="meta-info"></div>
+  </div>
+
+  <div class="lens-bar" id="lens-bar">
+    <div class="lens-tab active" data-lens="triage">Triage</div>
+    <div class="lens-tab" data-lens="streams">Streams</div>
+    <div class="lens-tab" data-lens="edges">Edge Effects</div>
+    <div class="lens-tab" data-lens="inventory">Inventory</div>
+    <div class="lens-tab" data-lens="timeline">Timeline</div>
+    <div class="lens-tab" data-lens="wins">Quick Wins</div>
+  </div>
+
+  <div class="panel active" id="panel-triage"></div>
+  <div class="panel" id="panel-streams"></div>
+  <div class="panel" id="panel-edges"></div>
+  <div class="panel" id="panel-inventory"></div>
+  <div class="panel" id="panel-timeline"></div>
+  <div class="panel" id="panel-wins"></div>
+</div>
+
+<script src="data.js"></script>
+<script>
+// Auth — simple token gate
+const TOKEN = 'aloe';
+const tokenInput = document.getElementById('token');
+tokenInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && tokenInput.value === TOKEN) {
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    renderAll();
+  }
+});
+
+// Check localStorage for saved auth
+if (localStorage.getItem('ingest-auth') === TOKEN) {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  setTimeout(renderAll, 0);
+}
+
+// Lens switching
+document.querySelectorAll('.lens-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.lens-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.lens).classList.add('active');
+  });
+});
+
+function renderAll() {
+  localStorage.setItem('ingest-auth', TOKEN);
+  const d = ingestData;
+
+  // Meta
+  document.getElementById('meta-info').textContent =
+    `${d.meta.totalItems} items · ${d.meta.streams.length} streams · updated ${d.meta.lastUpdated}`;
+
+  // Triage
+  const triageEl = document.getElementById('panel-triage');
+  triageEl.innerHTML = d.triage.map(item => `
+    <div class="triage-item">
+      <span class="urgency ${item.urgency}">${item.urgency}</span>
+      <span class="triage-title">${item.title}</span>
+      <span class="triage-type">${item.type}</span>
+    </div>
+  `).join('');
+
+  // Streams
+  const streamsEl = document.getElementById('panel-streams');
+  streamsEl.innerHTML = '<div class="stream-grid">' + d.streamHealth.map(s => `
+    <div class="stream-card" style="border-left-color: ${d.meta.streams.find(ms => ms.id === s.id)?.color || '#333'}">
+      <div class="name">${d.meta.streams.find(ms => ms.id === s.id)?.label || s.id}</div>
+      <div class="status ${s.status}">${s.status}</div>
+      <div class="note">${s.note}</div>
+      <div class="count">${s.itemCount} items · ${s.lastTouched}</div>
+    </div>
+  `).join('') + '</div>';
+
+  // Edge Effects
+  const edgesEl = document.getElementById('panel-edges');
+  edgesEl.innerHTML = d.edges.map(edge => `
+    <div class="edge-card">
+      <div class="edge-label">${edge.label}</div>
+      <div class="edge-streams">
+        ${edge.streams.map(s => `<span class="edge-tag">${s}</span>`).join('')}
+      </div>
+      <div class="edge-note">${edge.note}</div>
+    </div>
+  `).join('');
+
+  // Inventory
+  const invEl = document.getElementById('panel-inventory');
+  const maxCount = Math.max(...Object.values(d.inventory).map(v => v.count));
+  invEl.innerHTML = Object.entries(d.inventory).map(([key, val]) => `
+    <div class="inv-row">
+      <div class="inv-count">${val.count}</div>
+      <div class="inv-label">${val.label}</div>
+      <div class="inv-bar"><div class="inv-fill" style="width: ${(val.count / maxCount) * 100}%"></div></div>
+    </div>
+  `).join('');
+
+  // Timeline
+  const tlEl = document.getElementById('panel-timeline');
+  tlEl.innerHTML = d.timeline.map(day => `
+    <div class="tl-day">
+      <div class="tl-date">
+        <span class="dot"></span>
+        ${day.date}
+        <span class="tl-count">${day.count} items</span>
+      </div>
+      <ul class="tl-highlights">
+        ${day.highlights.map(h => `<li>${h}</li>`).join('')}
+      </ul>
+    </div>
+  `).join('');
+
+  // Quick Wins
+  const winsEl = document.getElementById('panel-wins');
+  winsEl.innerHTML = d.quickWins.map(w => `
+    <div class="qw-item">
+      <div class="qw-check ${w.done ? 'done' : 'todo'}">${w.done ? '✓' : ''}</div>
+      <span style="color: ${w.done ? '#666' : '#e0e0e0'}">${w.label}</span>
+    </div>
+  `).join('');
+}
+</script>
+</body>
+</html>
